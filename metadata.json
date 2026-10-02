@@ -2,7 +2,8 @@
   "name": "Remix ArthroScan NER",
   "description": "AI-assisted early detection and screening platform for Osteoarthritis (OA) in North Eastern Region (NER) India (SIH PS26004).",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "microphone"
   ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

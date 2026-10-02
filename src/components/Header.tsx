@@ -9,7 +9,9 @@ import {
   RefreshCw,
   Stethoscope,
   BarChart3,
-  ShieldCheck
+  ShieldCheck,
+  Mic,
+  Search
 } from 'lucide-react';
 import { ActiveRole, LanguageCode } from '../types';
 import { LANGUAGES, TRANSLATIONS } from '../utils/translations';
@@ -26,6 +28,8 @@ interface HeaderProps {
   pendingSyncCount: number;
   onSyncClick: () => void;
   isSyncing: boolean;
+  onOpenLiveVoice: () => void;
+  onOpenSearchGrounding: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -39,7 +43,9 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleOffline,
   pendingSyncCount,
   onSyncClick,
-  isSyncing
+  isSyncing,
+  onOpenLiveVoice,
+  onOpenSearchGrounding
 }) => {
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
 
@@ -165,6 +171,32 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <span className="hidden md:inline">{t.portalAdmin}</span>
             <span className="md:hidden">Analytics & MO</span>
+          </button>
+        </div>
+
+        {/* Live AI Voice & Search Grounding Actions */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onOpenLiveVoice}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-teal-500/10 to-emerald-500/15 hover:from-teal-500/20 hover:to-emerald-500/25 border border-teal-500/30 text-teal-800 dark:text-teal-300 text-xs font-semibold cursor-pointer transition-all active:scale-95 shadow-xs"
+            title="Start real-time voice conversation with Gemini 3.8 Live API"
+          >
+            <div className="relative flex items-center justify-center">
+              <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-teal-400 opacity-75" />
+              <Mic className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 relative" />
+            </div>
+            <span className="hidden sm:inline">Live Voice AI</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenSearchGrounding}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100/90 hover:bg-slate-200/90 dark:bg-slate-800/90 dark:hover:bg-slate-700/90 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold cursor-pointer transition-all active:scale-95"
+            title="Search clinical guidelines and research grounded with Google Search (gemini-3.5-flash)"
+          >
+            <Search className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+            <span className="hidden sm:inline">Grounded Research</span>
           </button>
         </div>
 

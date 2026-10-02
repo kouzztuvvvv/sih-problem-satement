@@ -20,6 +20,8 @@ import { TriageReport } from './components/TriageReport';
 import { PreventiveCare } from './components/PreventiveCare';
 import { AdminAnalytics } from './components/AdminAnalytics';
 import { PrintableReport } from './components/PrintableReport';
+import { LiveVoiceConsultant } from './components/LiveVoiceConsultant';
+import { SearchGroundingModal } from './components/SearchGroundingModal';
 import { TRANSLATIONS } from './utils/translations';
 import { computeCompositeScreening } from './utils/scoring';
 import {
@@ -142,6 +144,35 @@ export default function App() {
   // Printable Report Modal
   const [selectedRecordForPrint, setSelectedRecordForPrint] = useState<ScreeningResult | null>(null);
 
+  // Live Voice API (gemini-3.8-live) Modal State
+  const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false);
+  const [liveVoiceContext, setLiveVoiceContext] = useState<string>('');
+
+  // Google Search Grounding (gemini-3.5-flash) Modal State
+  const [isSearchGroundingOpen, setIsSearchGroundingOpen] = useState(false);
+  const [searchGroundingQuery, setSearchGroundingQuery] = useState<string>('');
+  const [searchGroundingContext, setSearchGroundingContext] = useState<string>('');
+
+  const handleOpenLiveVoice = (context?: string) => {
+    setLiveVoiceContext(
+      context ||
+        `Current patient: ${patientData.fullName || 'Screening in progress'}, ${patientData.age}y, ${patientData.gender} from ${patientData.district}, ${patientData.state}. Vocation: ${patientData.vocation}.`
+    );
+    setIsLiveVoiceOpen(true);
+  };
+
+  const handleOpenSearchGrounding = (defaultQ?: string, context?: string) => {
+    setSearchGroundingQuery(
+      defaultQ ||
+        'Latest ICMR guidelines for early knee osteoarthritis screening and diagnosis in rural India'
+    );
+    setSearchGroundingContext(
+      context ||
+        `Patient: ${patientData.fullName || 'Anonymous'}, ${patientData.age}y ${patientData.gender}, ${patientData.state}. Vocation: ${patientData.vocation}.`
+    );
+    setIsSearchGroundingOpen(true);
+  };
+
   // Storage and Sync Queue
   const [screeningsList, setScreeningsList] = useState<ScreeningResult[]>(() =>
     getStoredScreenings()
@@ -227,6 +258,8 @@ export default function App() {
         pendingSyncCount={pendingCount}
         onSyncClick={handleSync}
         isSyncing={isSyncing}
+        onOpenLiveVoice={() => handleOpenLiveVoice()}
+        onOpenSearchGrounding={() => handleOpenSearchGrounding()}
       />
 
       {/* Main Content Area */}
@@ -339,6 +372,8 @@ export default function App() {
                 onViewGuidance={() => setActiveStep(5)}
                 onStartNew={handleStartNewPatient}
                 language={language}
+                onOpenLiveVoice={(ctx) => handleOpenLiveVoice(ctx)}
+                onOpenSearchGrounding={(q, ctx) => handleOpenSearchGrounding(q, ctx)}
               />
             )}
 
@@ -370,6 +405,21 @@ export default function App() {
           onClose={() => setSelectedRecordForPrint(null)}
         />
       )}
+
+      {/* Real-time Voice Consultation Modal (Gemini 3.8 Live API) */}
+      <LiveVoiceConsultant
+        isOpen={isLiveVoiceOpen}
+        onClose={() => setIsLiveVoiceOpen(false)}
+        patientContext={liveVoiceContext}
+      />
+
+      {/* Grounded Clinical Research Modal (Gemini 3.5 Flash + Google Search) */}
+      <SearchGroundingModal
+        isOpen={isSearchGroundingOpen}
+        onClose={() => setIsSearchGroundingOpen(false)}
+        defaultQuery={searchGroundingQuery}
+        patientContext={searchGroundingContext}
+      />
 
       {/* Footer */}
       <footer className="w-full border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 py-4 px-4 text-center text-xs text-slate-500 dark:text-slate-400 no-print transition-colors">

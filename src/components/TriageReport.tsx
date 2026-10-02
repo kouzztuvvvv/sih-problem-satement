@@ -15,7 +15,10 @@ import {
   ChevronRight,
   QrCode,
   Download,
-  BookOpen
+  BookOpen,
+  Mic,
+  Globe,
+  Sparkles
 } from 'lucide-react';
 import { LanguageCode, ScreeningResult } from '../types';
 import { TRANSLATIONS } from '../utils/translations';
@@ -26,6 +29,8 @@ interface TriageReportProps {
   onViewGuidance: () => void;
   onStartNew: () => void;
   language: LanguageCode;
+  onOpenLiveVoice?: (context?: string) => void;
+  onOpenSearchGrounding?: (query?: string, context?: string) => void;
 }
 
 export const TriageReport: React.FC<TriageReportProps> = ({
@@ -33,7 +38,9 @@ export const TriageReport: React.FC<TriageReportProps> = ({
   onOpenPrintModal,
   onViewGuidance,
   onStartNew,
-  language
+  language,
+  onOpenLiveVoice,
+  onOpenSearchGrounding
 }) => {
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
 
@@ -319,6 +326,54 @@ export const TriageReport: React.FC<TriageReportProps> = ({
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Live AI Voice & Grounded Clinical Research Section */}
+      <div className="bg-gradient-to-r from-teal-500/10 via-emerald-500/5 to-transparent rounded-2xl border border-teal-500/30 p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                AI Clinical Decision Support & Real-Time Intelligence
+              </h3>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-xl">
+              Discuss this patient's mobility findings interactively with <strong>ArthroVoice Live (gemini-3.8-live)</strong> or verify up-to-date orthopaedic protocols with <strong>Google Search Grounding (gemini-3.5-flash)</strong>.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            {onOpenLiveVoice && (
+              <button
+                type="button"
+                onClick={() => {
+                  const ctx = `Patient ${screening.patient.fullName}, ${screening.patient.age}y ${screening.patient.gender} from ${screening.patient.district}, ${screening.patient.state}. Vocation: ${screening.patient.vocation}. Composite OA Risk: ${screening.compositeRiskScore}/100 (${screening.riskLevel}). Gait Asymmetry: ${screening.kinetics.gait.asymmetryIndex.toFixed(1)}%. Chair stand: ${screening.kinetics.chairStand.completedReps} reps. WOMAC Score: ${screening.womacScore}.`;
+                  onOpenLiveVoice(ctx);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold flex items-center gap-2 shadow-sm shadow-teal-600/20 cursor-pointer transition-all active:scale-95"
+              >
+                <Mic className="w-4 h-4" />
+                <span>Discuss with Live Voice AI</span>
+              </button>
+            )}
+
+            {onOpenSearchGrounding && (
+              <button
+                type="button"
+                onClick={() => {
+                  const defaultQuery = `Clinical management and community physiotherapy protocols for ${screening.patient.age}yo ${screening.patient.gender.toLowerCase()} in ${screening.patient.state} with ${screening.riskLevel.toLowerCase()} risk knee osteoarthritis and ${screening.kinetics.gait.asymmetryIndex > 10 ? 'marked gait asymmetry' : 'early degenerative wear'}`;
+                  const ctx = `Patient: ${screening.patient.fullName}, ${screening.patient.age}y, ${screening.patient.gender}. Location: ${screening.patient.district}, ${screening.patient.state}. Vocation: ${screening.patient.vocation}. Risk: ${screening.riskLevel} (${screening.compositeRiskScore}/100). Primary factors: ${screening.primaryFactors.join(', ')}.`;
+                  onOpenSearchGrounding(defaultQuery, ctx);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold flex items-center gap-2 shadow-sm cursor-pointer transition-all active:scale-95"
+              >
+                <Globe className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <span>Grounded Research for this Case</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
