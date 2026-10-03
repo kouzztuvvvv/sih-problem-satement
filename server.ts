@@ -5,6 +5,12 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
+import {
+  readDatabase,
+  saveScreeningRecord,
+  deleteScreeningRecord,
+  savePatientRecord
+} from './server-db.js';
 
 dotenv.config();
 
@@ -81,6 +87,118 @@ app.post('/api/research/search-grounding', async (req: Request, res: Response) =
     res.status(500).json({
       error: error?.message || 'Failed to execute search grounding query.',
     });
+  }
+});
+
+// Database API: Get all screenings
+app.get('/api/database/screenings', (_req: Request, res: Response) => {
+  try {
+    const db = readDatabase();
+    res.json({
+      success: true,
+      screenings: db.screenings,
+      total: db.screenings.length,
+      lastModified: db.lastModified
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to fetch screenings' });
+  }
+});
+
+// Database API: Save or update a screening
+app.post('/api/database/screenings', (req: Request, res: Response) => {
+  try {
+    const screening = req.body;
+    if (!screening) {
+      res.status(400).json({ error: 'Screening data is required' });
+      return;
+    }
+    const saved = saveScreeningRecord(screening);
+    res.json({
+      success: true,
+      message: 'Screening saved successfully to database',
+      screening: saved
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to save screening' });
+  }
+});
+
+// Database API: Delete a screening
+app.delete('/api/database/screenings/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const ok = deleteScreeningRecord(id);
+    if (ok) {
+      res.json({ success: true, message: `Screening ${id} deleted` });
+    } else {
+      res.status(404).json({ error: `Screening ${id} not found` });
+    }
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to delete screening' });
+  }
+});
+
+// Database API: Get all patient profiles
+app.get('/api/database/patients', (_req: Request, res: Response) => {
+  try {
+    const db = readDatabase();
+    res.json({
+      success: true,
+      patients: db.patients,
+      total: db.patients.length
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to fetch patients' });
+  }
+});
+
+// Database API: Save patient profile directly
+app.post('/api/database/patients', (req: Request, res: Response) => {
+  try {
+    const patientData = req.body;
+    if (!patientData || !patientData.fullName) {
+      res.status(400).json({ error: 'Patient full name is required' });
+      return;
+    }
+    const saved = savePatientRecord(patientData);
+    res.json({
+      success: true,
+      message: 'Patient details stored successfully in database',
+      patient: saved
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to save patient details' });
+  }
+});
+
+// Database API: Database stats & status
+app.get('/api/database/stats', (_req: Request, res: Response) => {
+  try {
+    const db = readDatabase();
+    const highRiskCount = db.screenings.filter(s => s.riskLevel === 'HIGH').length;
+    res.json({
+      success: true,
+      totalScreenings: db.screenings.length,
+      totalPatients: db.patients.length,
+      highRiskCount,
+      lastModified: db.lastModified,
+      auditLogsCount: db.auditLogs.length
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to get database stats' });
+  }
+});
+
+// Database API: Export full JSON database
+app.get('/api/database/export', (_req: Request, res: Response) => {
+  try {
+    const db = readDatabase();
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="arthroscan_database_backup.json"');
+    res.send(JSON.stringify(db, null, 2));
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to export database' });
   }
 });
 

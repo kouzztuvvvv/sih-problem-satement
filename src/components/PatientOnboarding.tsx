@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   User,
   Calendar,
@@ -8,7 +8,10 @@ import {
   Phone,
   Sparkles,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  Database,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import {
   LanguageCode,
@@ -18,21 +21,37 @@ import {
   PatientDemographics
 } from '../types';
 import { TRANSLATIONS } from '../utils/translations';
+import { savePatientToDatabase } from '../utils/databaseApi';
 
 interface PatientOnboardingProps {
   data: PatientDemographics;
   onChange: (updated: PatientDemographics) => void;
   onNext: () => void;
   language: LanguageCode;
+  onOpenDatabase?: () => void;
 }
 
 export const PatientOnboarding: React.FC<PatientOnboardingProps> = ({
   data,
   onChange,
   onNext,
-  language
+  language,
+  onOpenDatabase
 }) => {
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
+  const [savingDb, setSavingDb] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  const handleSaveToDb = async () => {
+    if (!data.fullName) return;
+    setSavingDb(true);
+    const res = await savePatientToDatabase(data);
+    setSavingDb(false);
+    if (res.success) {
+      setSaveSuccessMsg(`Saved to Database ✓ (ID: ${res.patient?.id || 'pat'})`);
+      setTimeout(() => setSaveSuccessMsg(null), 3500);
+    }
+  };
 
   const states = Object.keys(NER_STATES_AND_DISTRICTS) as NERState[];
   const districts = NER_STATES_AND_DISTRICTS[data.state] || [];
@@ -129,28 +148,32 @@ export const PatientOnboarding: React.FC<PatientOnboardingProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-teal-500" />
-            Quick Test Profile:
+            Quick Profiles:
           </span>
+          {onOpenDatabase && (
+            <button
+              type="button"
+              onClick={onOpenDatabase}
+              className="px-2.5 py-1 text-xs rounded-lg bg-[#ECE5D3] hover:bg-[#E4DBC5] text-[#2B2519] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border border-[#DDD5BF] dark:border-slate-700 transition-colors cursor-pointer flex items-center gap-1 font-semibold"
+              title="Select an existing patient from database"
+            >
+              <Database className="w-3 h-3 text-amber-600 dark:text-teal-400" />
+              <span>Database</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => handlePresetSelect('elderly_hill_farmer')}
             className="px-2.5 py-1 text-xs rounded-lg bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 transition-colors cursor-pointer"
           >
-            Khasi Hillside Farmer (58y)
+            Khasi Farmer (58y)
           </button>
           <button
             type="button"
             onClick={() => handlePresetSelect('tea_worker')}
             className="px-2.5 py-1 text-xs rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
           >
-            Assam Tea Worker (49y)
-          </button>
-          <button
-            type="button"
-            onClick={() => handlePresetSelect('young_active')}
-            className="px-2.5 py-1 text-xs rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
-          >
-            Nagaland Terrace Farmer (38y)
+            Assam Worker (49y)
           </button>
         </div>
       </div>
@@ -312,9 +335,37 @@ export const PatientOnboarding: React.FC<PatientOnboardingProps> = ({
 
       {/* Field worker notes & Next CTA */}
       <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span>Complies with Ayushman Bharat Digital Mission (ABDM) field guidelines</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSaveToDb}
+            disabled={!data.fullName || savingDb}
+            className={`px-3.5 py-2 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+              data.fullName
+                ? 'bg-[#ECE5D3] hover:bg-[#E4DBC5] text-[#2B2519] border-[#DDD5BF] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border-transparent cursor-not-allowed'
+            }`}
+            title="Save patient details to database"
+          >
+            {savingDb ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Database className="w-3.5 h-3.5 text-amber-600 dark:text-teal-400" />
+            )}
+            <span>Save Details to Database</span>
+          </button>
+
+          {saveSuccessMsg ? (
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {saveSuccessMsg}
+            </span>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              <span>Complies with ABDM</span>
+            </div>
+          )}
         </div>
 
         <button

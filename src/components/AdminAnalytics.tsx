@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Users,
   Activity,
@@ -22,8 +22,13 @@ import { NERState, ScreeningResult, RiskLevel } from '../types';
 import {
   exportScreeningsAsCSV,
   exportScreeningsAsJSON,
-  resetDemoScreenings
+  resetDemoScreenings,
+  getReturningPatientsSummary,
+  ReturningPatientSummary
 } from '../utils/storage';
+import { PainProgressionChart } from './PainProgressionChart';
+import { AdminQuickStats } from './AdminQuickStats';
+import { AdminFilterBar, DatePreset } from './AdminFilterBar';
 
 interface AdminAnalyticsProps {
   screenings: ScreeningResult[];
@@ -40,9 +45,37 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
   onViewRecord,
   onRefreshData
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  // Multi-parameter Search & Filter State
+  const [patientSearch, setPatientSearch] = useState('');
+  const [locationSearch, setLocationSearch] = useState('');
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>('all');
+  const [selectedDistrictFilter, setSelectedDistrictFilter] = useState<string>('all');
   const [selectedRiskFilter, setSelectedRiskFilter] = useState<string>('all');
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+
+  const handleResetAllFilters = () => {
+    setPatientSearch('');
+    setLocationSearch('');
+    setSelectedStateFilter('all');
+    setSelectedDistrictFilter('all');
+    setSelectedRiskFilter('all');
+    setDatePreset('all');
+    setStartDate('');
+    setEndDate('');
+  };
+
+  // Returning Patients for Longitudinal Pain Severity Tracking
+  const returningPatients = getReturningPatientsSummary(screenings);
+  const [selectedPatientKey, setSelectedPatientKey] = useState<string>(() => {
+    return returningPatients.length > 0 ? returningPatients[0].primaryKey : '';
+  });
+
+  const activeReturningPatient =
+    returningPatients.find(p => p.primaryKey === selectedPatientKey) ||
+    returningPatients[0] ||
+    null;
 
   // Metrics computation
   const totalScreened = screenings.length;
@@ -90,19 +123,63 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // Filtered Registry List
-  const filteredList = screenings.filter(item => {
-    const matchesSearch =
-      item.patient.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.referralId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.patient.district.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.patient.abhaId && item.patient.abhaId.includes(searchTerm));
+  // Filtered Registry List by Patient Name, Location (State/District/Village), Dates, and Risk
+  const filteredList = useMemo(() => {
+    return screenings.filter(item => {
+      // 1. Patient Name / ABHA / Token Search
+      if (patientSearch.trim()) {
+        const q = patientSearch.toLowerCase().trim();
+        const nameMatch = item.patient.fullName.toLowerCase().includes(q);
+        const abhaMatch = item.patient.abhaId ? item.patient.abhaId.toLowerCase().includes(q) : false;
+        const refMatch = item.referralId.toLowerCase().includes(q);
+        if (!nameMatch && !abhaMatch && !refMatch) return false;
+      }
 
-    const matchesState = selectedStateFilter === 'all' || item.patient.state === selectedStateFilter;
-    const matchesRisk = selectedRiskFilter === 'all' || item.riskLevel === selectedRiskFilter;
+      // 2. Location (State & District & Village / Locality)
+      if (selectedStateFilter !== 'all' && item.patient.state !== selectedStateFilter) {
+        return false;
+      }
+      if (selectedDistrictFilter !== 'all' && item.patient.district !== selectedDistrictFilter) {
+        return false;
+      }
+      if (locationSearch.trim()) {
+        const loc = locationSearch.toLowerCase().trim();
+        const distMatch = item.patient.district.toLowerCase().includes(loc);
+        const villageMatch = item.patient.village ? item.patient.village.toLowerCase().includes(loc) : false;
+        const stateMatch = item.patient.state.toLowerCase().includes(loc);
+        if (!distMatch && !villageMatch && !stateMatch) return false;
+      }
 
-    return matchesSearch && matchesState && matchesRisk;
-  });
+      // 3. Clinical Risk Level
+      if (selectedRiskFilter !== 'all' && item.riskLevel !== selectedRiskFilter) {
+        return false;
+      }
+
+      // 4. Date Range
+      if (startDate || endDate) {
+        const itemTime = new Date(item.timestamp).getTime();
+        if (startDate) {
+          const startTime = new Date(startDate).setHours(0, 0, 0, 0);
+          if (itemTime < startTime) return false;
+        }
+        if (endDate) {
+          const endTime = new Date(endDate).setHours(23, 59, 59, 999);
+          if (itemTime > endTime) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [
+    screenings,
+    patientSearch,
+    selectedStateFilter,
+    selectedDistrictFilter,
+    locationSearch,
+    selectedRiskFilter,
+    startDate,
+    endDate
+  ]);
 
   const handleDownloadCSV = () => {
     const csv = exportScreeningsAsCSV();
@@ -197,6 +274,9 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Quick Stats Summary Row (Recharts: Weekly Screenings Throughput & Regional Pain Levels) */}
+      <AdminQuickStats screenings={screenings} />
 
       {/* Analytics Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -393,64 +473,146 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
         </div>
       </div>
 
-      {/* Registry Table & Filter Controls */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm">
+      {/* Longitudinal Osteoarthritis Pain Progression Surveillance (Recharts Trend Line) */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-              Screening Registry & Patient Audit Queue
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Showing {filteredList.length} of {totalScreened} records
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <Activity className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Longitudinal Patient Progression Tracking (Pain Severity Trends)
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+                Recharts Analytics
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Monitors returning patients' historical Pain Severity (0-10) across follow-up visits to detect accelerated cartilage degeneration or therapeutic response.
             </p>
           </div>
 
-          {/* Search & Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Search patient, ABHA, token..."
-                className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500/20 w-48 sm:w-56"
-              />
-            </div>
-
-            {/* State Filter */}
+          {/* Returning Patient Selector */}
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs text-slate-500 font-medium shrink-0">
+              Returning Cohort:
+            </span>
             <select
-              value={selectedStateFilter}
-              onChange={e => setSelectedStateFilter(e.target.value)}
-              className="py-1.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
+              value={activeReturningPatient?.primaryKey || ''}
+              onChange={e => setSelectedPatientKey(e.target.value)}
+              className="py-2 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 cursor-pointer shadow-xs"
             >
-              <option value="all">All States</option>
-              {nerStates.map(st => (
-                <option key={st} value={st}>
-                  {st}
+              {returningPatients.map(p => (
+                <option key={p.primaryKey} value={p.primaryKey}>
+                  {p.patient.fullName} ({p.patient.state}) — {p.visitCount} visits ({p.deltaPain >= 0 ? `+${p.deltaPain}` : p.deltaPain} pts)
                 </option>
               ))}
             </select>
+          </div>
+        </div>
 
-            {/* Risk Filter */}
-            <select
-              value={selectedRiskFilter}
-              onChange={e => setSelectedRiskFilter(e.target.value)}
-              className="py-1.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
+        {activeReturningPatient ? (
+          <div>
+            {/* Active Patient Details Banner */}
+            <div className="mb-4 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center">
+                  {activeReturningPatient.patient.fullName.charAt(0)}
+                </div>
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-slate-100 block">
+                    {activeReturningPatient.patient.fullName}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    {activeReturningPatient.patient.age}y • {activeReturningPatient.patient.gender} • {activeReturningPatient.patient.vocation}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 text-[11px] font-mono">
+                <div>
+                  <span className="text-slate-400 block text-[9px] uppercase">ABHA ID</span>
+                  <span className="font-semibold text-teal-600 dark:text-teal-400">
+                    {activeReturningPatient.patient.abhaId || 'N/A'}
+                  </span>
+                </div>
+                <div className="h-6 w-px bg-slate-200 dark:bg-slate-700" />
+                <div>
+                  <span className="text-slate-400 block text-[9px] uppercase">Total Screenings</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {activeReturningPatient.visitCount} Visits
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Recharts Trend Line Component */}
+            <PainProgressionChart
+              history={activeReturningPatient.history}
+              patientName={activeReturningPatient.patient.fullName}
+              showMultiMetrics={true}
+            />
+          </div>
+        ) : (
+          <div className="p-8 text-center text-xs text-slate-400">
+            No returning patients with multi-visit history currently in the registry.
+          </div>
+        )}
+      </div>
+
+      {/* Search and Multi-Parameter Filter Bar (Date Range, Location, Patient Name, Risk) */}
+      <AdminFilterBar
+        patientSearch={patientSearch}
+        onPatientSearchChange={setPatientSearch}
+        locationSearch={locationSearch}
+        onLocationSearchChange={setLocationSearch}
+        selectedState={selectedStateFilter}
+        onStateChange={setSelectedStateFilter}
+        selectedDistrict={selectedDistrictFilter}
+        onDistrictChange={setSelectedDistrictFilter}
+        selectedRisk={selectedRiskFilter}
+        onRiskChange={setSelectedRiskFilter}
+        datePreset={datePreset}
+        onDatePresetChange={setDatePreset}
+        startDate={startDate}
+        onStartDateChange={setStartDate}
+        endDate={endDate}
+        onEndDateChange={setEndDate}
+        onResetFilters={handleResetAllFilters}
+        totalCount={totalScreened}
+        filteredCount={filteredList.length}
+      />
+
+      {/* Registry Table & Filter Controls */}
+      <div className="bg-[#FCFAF2] dark:bg-slate-900 rounded-2xl border border-[#E5DFD0] dark:border-slate-800 p-5 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E5DFD0] dark:border-slate-800">
+          <div>
+            <h3 className="text-sm font-bold text-[#2B2519] dark:text-slate-100">
+              Screening Registry & Patient Audit Queue
+            </h3>
+            <p className="text-xs text-[#736B59] dark:text-slate-400">
+              Showing {filteredList.length} of {totalScreened} records matching search criteria
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadCSV}
+              className="px-3 py-1.5 rounded-lg border border-[#DDD5BF] dark:border-slate-700 bg-[#FAF7EE] dark:bg-slate-800 hover:bg-[#ECE5D3] dark:hover:bg-slate-700 text-[#473F30] dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
+              title="Export currently filtered results as CSV"
             >
-              <option value="all">All Risk Levels</option>
-              <option value="HIGH">High Risk Only</option>
-              <option value="MODERATE">Moderate Risk</option>
-              <option value="LOW">Low Risk</option>
-            </select>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Export Filtered ({filteredList.length})</span>
+            </button>
           </div>
         </div>
 
         {/* Table View */}
         <div className="overflow-x-auto mt-4">
-          <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-            <thead className="text-[10px] uppercase font-bold text-slate-400 bg-slate-50 dark:bg-slate-800/60 border-y border-slate-200/80 dark:border-slate-800">
+          <table className="w-full text-left text-xs text-[#332D22] dark:text-slate-300">
+            <thead className="text-[10px] uppercase font-bold text-[#736B59] dark:text-slate-400 bg-[#F3EFE3] dark:bg-slate-800/60 border-y border-[#E5DFD0] dark:border-slate-800">
               <tr>
                 <th className="py-3 px-3">Referral Token</th>
                 <th className="py-3 px-3">Patient Details</th>
@@ -461,89 +623,114 @@ export const AdminAnalytics: React.FC<AdminAnalyticsProps> = ({
                 <th className="py-3 px-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredList.map(record => (
-                <tr
-                  key={record.id}
-                  className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                >
-                  <td className="py-3 px-3 font-mono font-medium text-slate-900 dark:text-slate-100">
-                    <div>{record.referralId}</div>
-                    <div className="text-[10px] text-slate-400">
-                      {new Date(record.timestamp).toLocaleDateString()}
+            <tbody className="divide-y divide-[#E5DFD0] dark:divide-slate-800">
+              {filteredList.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-xs text-[#736B59] dark:text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                      <div className="w-9 h-9 rounded-full bg-[#ECE5D3] dark:bg-slate-800 flex items-center justify-center text-[#736B59] dark:text-slate-400">
+                        <Filter className="w-4 h-4" />
+                      </div>
+                      <p className="font-bold text-sm text-[#2B2519] dark:text-slate-100">
+                        No screenings match your filters
+                      </p>
+                      <p className="text-[11px] text-[#736B59] dark:text-slate-400 text-center">
+                        Try clearing location or date boundaries, or searching for a different patient name or ABHA ID.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleResetAllFilters}
+                        className="mt-1 px-3 py-1.5 rounded-lg bg-[#ECE5D3] hover:bg-[#E4DBC5] text-[#2B2519] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 text-xs font-semibold border border-[#DDD5BF] dark:border-slate-700 cursor-pointer"
+                      >
+                        Reset All Filters
+                      </button>
                     </div>
-                  </td>
-
-                  <td className="py-3 px-3">
-                    <div className="font-bold text-slate-900 dark:text-slate-100">
-                      {record.patient.fullName}
-                    </div>
-                    <div className="text-[11px] text-slate-400">
-                      {record.patient.age}y • {record.patient.gender} • ABHA: {record.patient.abhaId || '—'}
-                    </div>
-                  </td>
-
-                  <td className="py-3 px-3">
-                    <div className="font-semibold text-slate-800 dark:text-slate-200">
-                      {record.patient.district}, {record.patient.state}
-                    </div>
-                    <div className="text-[10px] text-slate-400 truncate max-w-[180px]">
-                      {record.patient.vocation}
-                    </div>
-                  </td>
-
-                  <td className="py-3 px-3 font-mono">
-                    <div>
-                      WOMAC: <span className="font-bold">{record.womacScore}</span>
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      Asym: {record.kinetics.gait.asymmetryIndex.toFixed(1)}% | Chair: {record.kinetics.chairStand.completedReps}r
-                    </div>
-                  </td>
-
-                  <td className="py-3 px-3">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        record.riskLevel === 'HIGH'
-                          ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20'
-                          : record.riskLevel === 'MODERATE'
-                          ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
-                          : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
-                      }`}
-                    >
-                      {record.riskLevel} ({record.compositeRiskScore})
-                    </span>
-                  </td>
-
-                  <td className="py-3 px-3">
-                    <span
-                      className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                        record.syncStatus === 'synced'
-                          ? 'text-teal-600 dark:text-teal-400'
-                          : 'text-amber-600 dark:text-amber-400'
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          record.syncStatus === 'synced' ? 'bg-teal-500' : 'bg-amber-500'
-                        }`}
-                      />
-                      {record.syncStatus === 'synced' ? 'Synced' : 'Local Queue'}
-                    </span>
-                  </td>
-
-                  <td className="py-3 px-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => onViewRecord(record)}
-                      className="px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 text-teal-700 dark:text-teal-300 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      <Eye className="w-3 h-3" />
-                      <span>View Slip</span>
-                    </button>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredList.map(record => (
+                  <tr
+                    key={record.id}
+                    className="hover:bg-[#F3EFE3]/60 dark:hover:bg-slate-800/40 transition-colors"
+                  >
+                    <td className="py-3 px-3 font-mono font-medium text-[#2B2519] dark:text-slate-100">
+                      <div>{record.referralId}</div>
+                      <div className="text-[10px] text-[#736B59] dark:text-slate-400">
+                        {new Date(record.timestamp).toLocaleDateString()}
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <div className="font-bold text-[#2B2519] dark:text-slate-100">
+                        {record.patient.fullName}
+                      </div>
+                      <div className="text-[11px] text-[#736B59] dark:text-slate-400">
+                        {record.patient.age}y • {record.patient.gender} • ABHA: {record.patient.abhaId || '—'}
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <div className="font-semibold text-[#332D22] dark:text-slate-200">
+                        {record.patient.district}, {record.patient.state}
+                      </div>
+                      <div className="text-[10px] text-[#736B59] dark:text-slate-400 truncate max-w-[180px]">
+                        {record.patient.vocation}
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-3 font-mono">
+                      <div>
+                        WOMAC: <span className="font-bold">{record.womacScore}</span>
+                      </div>
+                      <div className="text-[10px] text-[#736B59] dark:text-slate-400">
+                        Asym: {record.kinetics.gait.asymmetryIndex.toFixed(1)}% | Chair: {record.kinetics.chairStand.completedReps}r
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          record.riskLevel === 'HIGH'
+                            ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20'
+                            : record.riskLevel === 'MODERATE'
+                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+                            : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+                        }`}
+                      >
+                        {record.riskLevel} ({record.compositeRiskScore})
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-3">
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium ${
+                          record.syncStatus === 'synced'
+                            ? 'text-teal-700 dark:text-teal-400'
+                            : 'text-amber-700 dark:text-amber-400'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            record.syncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-500'
+                          }`}
+                        />
+                        {record.syncStatus === 'synced' ? 'Synced' : 'Local Queue'}
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => onViewRecord(record)}
+                        className="px-2.5 py-1 rounded-lg bg-[#ECE5D3] hover:bg-[#E4DBC5] dark:bg-slate-800 dark:hover:bg-slate-700 text-[#2B2519] dark:text-slate-200 border border-[#DDD5BF] dark:border-slate-700 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>View Slip</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
 

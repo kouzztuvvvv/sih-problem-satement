@@ -4,6 +4,7 @@ const STORAGE_KEY = 'arthroscan_ner_screenings_v1';
 const OFFLINE_OVERRIDE_KEY = 'arthroscan_offline_mode_active';
 
 const INITIAL_MOCK_RECORDS: ScreeningResult[] = [
+  // Bamonlang Kharbangar - Latest Visit (Sep 2026)
   {
     id: 'scr_mock_01',
     referralId: 'NER-OA-ME-2026-1049',
@@ -75,6 +76,140 @@ const INITIAL_MOCK_RECORDS: ScreeningResult[] = [
     ashaWorkerName: 'ASHA Ibanri Marbaniang',
     syncStatus: 'synced'
   },
+  // Bamonlang Kharbangar - Follow-up 1 (May 2026)
+  {
+    id: 'scr_mock_01_prev1',
+    referralId: 'NER-OA-ME-2026-0812',
+    timestamp: '2026-05-20T10:15:00Z',
+    patient: {
+      fullName: 'Bamonlang Kharbangar',
+      age: 58,
+      gender: 'Female',
+      state: 'Meghalaya',
+      district: 'East Khasi Hills (Shillong)',
+      village: 'Mawkdok',
+      vocation: 'Hillside Farming & Terrace Cultivation',
+      abhaId: '91-4829-1049-5821',
+      primaryLanguage: 'kha'
+    },
+    kinetics: {
+      chairStand: {
+        completedReps: 10,
+        avgFlexionAngle: 90,
+        testDurationSeconds: 30,
+        fatigueIndex: 35,
+        completed: true
+      },
+      gait: {
+        asymmetryIndex: 9.4,
+        leftStanceDurationSec: 0.77,
+        rightStanceDurationSec: 0.65,
+        strideVariabilityPercent: 5.6,
+        cadenceStepsPerMin: 94,
+        completed: true
+      },
+      rom: {
+        maxFlexionAngle: 112,
+        extensionDeficitAngle: 7,
+        jointCrepitusPresent: true,
+        affectedKnee: 'Both',
+        completed: true
+      }
+    },
+    symptoms: {
+      painSeverity: 6,
+      morningStiffnessMin: 30,
+      terrainDifficulty: 3,
+      flatWalkDifficulty: 2,
+      jointTraumaHistory: true,
+      carryingHeavyLoadDaily: true,
+      jointSwelling: true,
+      weatherSensitivity: true
+    },
+    womacScore: 56,
+    kineticDeficitScore: 54,
+    compositeRiskScore: 61,
+    riskLevel: 'MODERATE',
+    primaryFactors: [
+      'Age (58 years)',
+      'Occupational Hillside Strain',
+      'Moderate Gait Asymmetry (9.4%)'
+    ],
+    clinicalRecommendations: [
+      'Quadriceps strengthening exercises',
+      'Follow-up review in 4 months'
+    ],
+    referralCenter: 'NEIGRIHMS Shillong / Civil Hospital Shillong',
+    ashaWorkerName: 'ASHA Ibanri Marbaniang',
+    syncStatus: 'synced'
+  },
+  // Bamonlang Kharbangar - Baseline Visit (Jan 2026)
+  {
+    id: 'scr_mock_01_prev2',
+    referralId: 'NER-OA-ME-2026-0104',
+    timestamp: '2026-01-14T09:30:00Z',
+    patient: {
+      fullName: 'Bamonlang Kharbangar',
+      age: 58,
+      gender: 'Female',
+      state: 'Meghalaya',
+      district: 'East Khasi Hills (Shillong)',
+      village: 'Mawkdok',
+      vocation: 'Hillside Farming & Terrace Cultivation',
+      abhaId: '91-4829-1049-5821',
+      primaryLanguage: 'kha'
+    },
+    kinetics: {
+      chairStand: {
+        completedReps: 13,
+        avgFlexionAngle: 96,
+        testDurationSeconds: 30,
+        fatigueIndex: 22,
+        completed: true
+      },
+      gait: {
+        asymmetryIndex: 5.6,
+        leftStanceDurationSec: 0.72,
+        rightStanceDurationSec: 0.68,
+        strideVariabilityPercent: 4.1,
+        cadenceStepsPerMin: 104,
+        completed: true
+      },
+      rom: {
+        maxFlexionAngle: 122,
+        extensionDeficitAngle: 3,
+        jointCrepitusPresent: false,
+        affectedKnee: 'Both',
+        completed: true
+      }
+    },
+    symptoms: {
+      painSeverity: 4,
+      morningStiffnessMin: 15,
+      terrainDifficulty: 2,
+      flatWalkDifficulty: 1,
+      jointTraumaHistory: false,
+      carryingHeavyLoadDaily: true,
+      jointSwelling: false,
+      weatherSensitivity: false
+    },
+    womacScore: 38,
+    kineticDeficitScore: 35,
+    compositeRiskScore: 42,
+    riskLevel: 'LOW',
+    primaryFactors: [
+      'Age (58 years)',
+      'Terrace farming physical load'
+    ],
+    clinicalRecommendations: [
+      'Ergonomic advice on carrying loads',
+      'Annual review'
+    ],
+    referralCenter: 'NEIGRIHMS Shillong / Civil Hospital Shillong',
+    ashaWorkerName: 'ASHA Ibanri Marbaniang',
+    syncStatus: 'synced'
+  },
+  // Hiren Borgohain - Latest Visit (Sep 2026) - Improving with cane & exercises
   {
     id: 'scr_mock_02',
     referralId: 'NER-OA-AS-2026-2914',
@@ -92,57 +227,123 @@ const INITIAL_MOCK_RECORDS: ScreeningResult[] = [
     },
     kinetics: {
       chairStand: {
-        completedReps: 11,
-        avgFlexionAngle: 94,
+        completedReps: 12,
+        avgFlexionAngle: 96,
         testDurationSeconds: 30,
-        fatigueIndex: 25,
+        fatigueIndex: 22,
         completed: true
       },
       gait: {
-        asymmetryIndex: 7.8,
-        leftStanceDurationSec: 0.71,
-        rightStanceDurationSec: 0.64,
-        strideVariabilityPercent: 4.6,
-        cadenceStepsPerMin: 102,
+        asymmetryIndex: 7.2,
+        leftStanceDurationSec: 0.70,
+        rightStanceDurationSec: 0.65,
+        strideVariabilityPercent: 4.4,
+        cadenceStepsPerMin: 104,
         completed: true
       },
       rom: {
-        maxFlexionAngle: 118,
-        extensionDeficitAngle: 5,
+        maxFlexionAngle: 120,
+        extensionDeficitAngle: 4,
         jointCrepitusPresent: true,
         affectedKnee: 'Right',
         completed: true
       }
     },
     symptoms: {
-      painSeverity: 5,
-      morningStiffnessMin: 20,
+      painSeverity: 4,
+      morningStiffnessMin: 18,
       terrainDifficulty: 2,
-      flatWalkDifficulty: 2,
+      flatWalkDifficulty: 1,
       jointTraumaHistory: false,
       carryingHeavyLoadDaily: true,
       jointSwelling: false,
       weatherSensitivity: true
     },
-    womacScore: 48,
-    kineticDeficitScore: 46,
-    compositeRiskScore: 51,
+    womacScore: 44,
+    kineticDeficitScore: 42,
+    compositeRiskScore: 46,
     riskLevel: 'MODERATE',
     primaryFactors: [
       'Occupational Terrain & Chronic Knee Loading',
       'Daily Headloading / Heavy Basket Transport',
-      'Moderate Gait Asymmetry (7.8%)'
+      'Mild Gait Asymmetry (7.2%)'
     ],
     clinicalRecommendations: [
-      'Initiate daily Quadriceps and Hamstring isometric strengthening routine',
-      'Adopt switchback zig-zag descent techniques when navigating hilly slopes',
-      'Use padded bilateral trekking poles / bamboo walking stick for weight redistribution',
-      'Follow-up screening by ASHA worker in 3 months'
+      'Continue isometric quad strengthening',
+      'Continue bamboo stick support during tea plucking'
     ],
     referralCenter: 'Gauhati Medical College & Hospital (GMCH) / Assam Medical College Dibrugarh',
     ashaWorkerName: 'ANM Rita Saikia',
     syncStatus: 'synced'
   },
+  // Hiren Borgohain - Baseline Visit (Feb 2026)
+  {
+    id: 'scr_mock_02_prev1',
+    referralId: 'NER-OA-AS-2026-1102',
+    timestamp: '2026-02-12T14:00:00Z',
+    patient: {
+      fullName: 'Hiren Borgohain',
+      age: 49,
+      gender: 'Male',
+      state: 'Assam',
+      district: 'Dibrugarh',
+      village: 'Barbaruah Tea Estate',
+      vocation: 'Tea Garden Labor & Leaf Plucking',
+      abhaId: '91-3091-8842-1940',
+      primaryLanguage: 'as'
+    },
+    kinetics: {
+      chairStand: {
+        completedReps: 9,
+        avgFlexionAngle: 90,
+        testDurationSeconds: 30,
+        fatigueIndex: 36,
+        completed: true
+      },
+      gait: {
+        asymmetryIndex: 11.4,
+        leftStanceDurationSec: 0.78,
+        rightStanceDurationSec: 0.62,
+        strideVariabilityPercent: 6.8,
+        cadenceStepsPerMin: 90,
+        completed: true
+      },
+      rom: {
+        maxFlexionAngle: 110,
+        extensionDeficitAngle: 8,
+        jointCrepitusPresent: true,
+        affectedKnee: 'Right',
+        completed: true
+      }
+    },
+    symptoms: {
+      painSeverity: 7,
+      morningStiffnessMin: 35,
+      terrainDifficulty: 3,
+      flatWalkDifficulty: 2,
+      jointTraumaHistory: false,
+      carryingHeavyLoadDaily: true,
+      jointSwelling: true,
+      weatherSensitivity: true
+    },
+    womacScore: 66,
+    kineticDeficitScore: 64,
+    compositeRiskScore: 68,
+    riskLevel: 'HIGH',
+    primaryFactors: [
+      'Occupational Hillside Strain',
+      'Elevated Gait Asymmetry (11.4%)',
+      'High Pain Severity (7/10)'
+    ],
+    clinicalRecommendations: [
+      'Physical therapy prescription',
+      'Ergonomic offloader stick adaptation'
+    ],
+    referralCenter: 'Assam Medical College Dibrugarh',
+    ashaWorkerName: 'ANM Rita Saikia',
+    syncStatus: 'synced'
+  },
+  // Lalrinmawii Sailo - Latest (Sep 2026)
   {
     id: 'scr_mock_03',
     referralId: 'NER-OA-MZ-2026-6731',
@@ -209,6 +410,72 @@ const INITIAL_MOCK_RECORDS: ScreeningResult[] = [
       'Tele-consultation queued with Regional Orthopaedic Specialist'
     ],
     referralCenter: 'Zoram Medical College (ZMC) Falkawn / Civil Hospital Aizawl',
+    ashaWorkerName: 'ASHA Vanlalruati',
+    syncStatus: 'synced'
+  },
+  // Lalrinmawii Sailo - Baseline Visit (Apr 2026)
+  {
+    id: 'scr_mock_03_prev1',
+    referralId: 'NER-OA-MZ-2026-3391',
+    timestamp: '2026-04-12T11:00:00Z',
+    patient: {
+      fullName: 'Lalrinmawii Sailo',
+      age: 62,
+      gender: 'Female',
+      state: 'Mizoram',
+      district: 'Aizawl',
+      village: 'Durtlang',
+      vocation: 'Traditional Weaving & Household Work',
+      abhaId: '91-7712-4019-9943',
+      primaryLanguage: 'miz'
+    },
+    kinetics: {
+      chairStand: {
+        completedReps: 10,
+        avgFlexionAngle: 92,
+        testDurationSeconds: 30,
+        fatigueIndex: 38,
+        completed: true
+      },
+      gait: {
+        asymmetryIndex: 8.4,
+        leftStanceDurationSec: 0.76,
+        rightStanceDurationSec: 0.68,
+        strideVariabilityPercent: 5.4,
+        cadenceStepsPerMin: 96,
+        completed: true
+      },
+      rom: {
+        maxFlexionAngle: 114,
+        extensionDeficitAngle: 6,
+        jointCrepitusPresent: true,
+        affectedKnee: 'Both',
+        completed: true
+      }
+    },
+    symptoms: {
+      painSeverity: 5,
+      morningStiffnessMin: 25,
+      terrainDifficulty: 2,
+      flatWalkDifficulty: 2,
+      jointTraumaHistory: false,
+      carryingHeavyLoadDaily: false,
+      jointSwelling: false,
+      weatherSensitivity: true
+    },
+    womacScore: 52,
+    kineticDeficitScore: 50,
+    compositeRiskScore: 55,
+    riskLevel: 'MODERATE',
+    primaryFactors: [
+      'Age (62 years)',
+      'Weaving prolonged seated joint stiffness'
+    ],
+    clinicalRecommendations: [
+      'Heel slides and seated knee extension',
+      'Follow-up in 5 months'
+    ],
+    referralCenter: 'Zoram Medical College (ZMC) Falkawn',
     ashaWorkerName: 'ASHA Vanlalruati',
     syncStatus: 'synced'
   },
@@ -660,3 +927,70 @@ export function exportScreeningsAsCSV(): string {
 
   return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 }
+
+export function getPatientHistory(patientNameOrAbha: string, allScreenings?: ScreeningResult[]): ScreeningResult[] {
+  const records = allScreenings || getStoredScreenings();
+  const searchKey = patientNameOrAbha.toLowerCase().trim();
+
+  const history = records.filter(s => {
+    const abhaMatch = s.patient.abhaId && s.patient.abhaId.toLowerCase().trim() === searchKey;
+    const nameMatch = s.patient.fullName.toLowerCase().trim() === searchKey;
+    return abhaMatch || nameMatch;
+  });
+
+  return history.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+export interface ReturningPatientSummary {
+  patient: ScreeningResult['patient'];
+  primaryKey: string;
+  visitCount: number;
+  history: ScreeningResult[];
+  baselinePain: number;
+  latestPain: number;
+  deltaPain: number;
+  baselineDate: string;
+  latestDate: string;
+}
+
+export function getReturningPatientsSummary(allScreenings?: ScreeningResult[]): ReturningPatientSummary[] {
+  const records = allScreenings || getStoredScreenings();
+  const groups: Record<string, ScreeningResult[]> = {};
+
+  records.forEach(r => {
+    const key = r.patient.abhaId?.trim() || r.patient.fullName.toLowerCase().trim();
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+    groups[key].push(r);
+  });
+
+  const returning: ReturningPatientSummary[] = [];
+
+  Object.entries(groups).forEach(([key, list]) => {
+    const sorted = [...list].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    if (sorted.length >= 2) {
+      const baseline = sorted[0];
+      const latest = sorted[sorted.length - 1];
+      const baselinePain = baseline.symptoms.painSeverity;
+      const latestPain = latest.symptoms.painSeverity;
+      const deltaPain = latestPain - baselinePain;
+
+      returning.push({
+        patient: latest.patient,
+        primaryKey: key,
+        visitCount: sorted.length,
+        history: sorted,
+        baselinePain,
+        latestPain,
+        deltaPain,
+        baselineDate: baseline.timestamp,
+        latestDate: latest.timestamp,
+      });
+    }
+  });
+
+  // Sort by visit count and latest date
+  return returning.sort((a, b) => b.visitCount - a.visitCount);
+}
+

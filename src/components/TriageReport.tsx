@@ -18,10 +18,14 @@ import {
   BookOpen,
   Mic,
   Globe,
-  Sparkles
+  Sparkles,
+  Database,
+  CheckCircle2
 } from 'lucide-react';
 import { LanguageCode, ScreeningResult } from '../types';
 import { TRANSLATIONS } from '../utils/translations';
+import { getPatientHistory } from '../utils/storage';
+import { PainProgressionChart } from './PainProgressionChart';
 
 interface TriageReportProps {
   screening: ScreeningResult;
@@ -31,6 +35,7 @@ interface TriageReportProps {
   language: LanguageCode;
   onOpenLiveVoice?: (context?: string) => void;
   onOpenSearchGrounding?: (query?: string, context?: string) => void;
+  onOpenDatabase?: () => void;
 }
 
 export const TriageReport: React.FC<TriageReportProps> = ({
@@ -40,9 +45,18 @@ export const TriageReport: React.FC<TriageReportProps> = ({
   onStartNew,
   language,
   onOpenLiveVoice,
-  onOpenSearchGrounding
+  onOpenSearchGrounding,
+  onOpenDatabase
 }) => {
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
+
+  const patientHistory = React.useMemo(() => {
+    const list = getPatientHistory(screening.patient.abhaId || screening.patient.fullName);
+    if (!list.some(s => s.id === screening.id)) {
+      return [...list, screening].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    }
+    return list;
+  }, [screening]);
 
   useEffect(() => {
     if (screening.riskLevel === 'LOW') {
@@ -129,6 +143,18 @@ export const TriageReport: React.FC<TriageReportProps> = ({
 
           {/* Quick Print & Action Buttons */}
           <div className="flex flex-wrap md:flex-col gap-2 shrink-0">
+            {onOpenDatabase && (
+              <button
+                type="button"
+                onClick={onOpenDatabase}
+                className="px-4 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all"
+                title="View this record in the persistent server database"
+              >
+                <Database className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Saved in Database ✓</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={onOpenPrintModal}
@@ -283,6 +309,34 @@ export const TriageReport: React.FC<TriageReportProps> = ({
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Longitudinal Osteoarthritis Pain Severity Progression (Recharts Trend Line) */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <Activity className="w-4 h-4" />
+              </span>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                Patient Pain Severity & Long-Term Osteoarthritis Progression
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+                {patientHistory.length > 1 ? `${patientHistory.length} Recorded Visits` : 'Baseline Record'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Historical trend line powered by Recharts monitoring Visual Analogue Scale (0-10) pain progression to detect symptom escalation or therapeutic relief.
+            </p>
+          </div>
+        </div>
+
+        <PainProgressionChart
+          history={patientHistory}
+          patientName={screening.patient.fullName}
+          showMultiMetrics={true}
+        />
       </div>
 
       {/* Key Risk Factors Identified & Recommended Clinical Pathways */}

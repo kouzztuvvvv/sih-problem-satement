@@ -22,8 +22,13 @@ import { AdminAnalytics } from './components/AdminAnalytics';
 import { PrintableReport } from './components/PrintableReport';
 import { LiveVoiceConsultant } from './components/LiveVoiceConsultant';
 import { SearchGroundingModal } from './components/SearchGroundingModal';
+import { DatabaseModal } from './components/DatabaseModal';
 import { TRANSLATIONS } from './utils/translations';
 import { computeCompositeScreening } from './utils/scoring';
+import {
+  saveScreeningToDatabase,
+  fetchDatabaseScreenings
+} from './utils/databaseApi';
 import {
   getOfflineSimulatedStatus,
   getStoredScreenings,
@@ -39,7 +44,10 @@ import {
   BookOpen,
   ArrowRight,
   ShieldCheck,
-  WifiOff
+  WifiOff,
+  ChevronLeft,
+  ChevronRight,
+  Database
 } from 'lucide-react';
 
 const DEFAULT_PATIENT: PatientDemographics = {
@@ -104,11 +112,19 @@ export default function App() {
 
   // Sync theme with document class
   useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
     if (isDark) {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
+      body?.classList.add('dark');
+      root.setAttribute('data-theme', 'dark');
+      root.style.colorScheme = 'dark';
       localStorage.setItem('arthroscan_theme', 'dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
+      body?.classList.remove('dark');
+      root.setAttribute('data-theme', 'light');
+      root.style.colorScheme = 'light';
       localStorage.setItem('arthroscan_theme', 'light');
     }
   }, [isDark]);
@@ -153,6 +169,20 @@ export default function App() {
   const [searchGroundingQuery, setSearchGroundingQuery] = useState<string>('');
   const [searchGroundingContext, setSearchGroundingContext] = useState<string>('');
 
+  // Database Modal State
+  const [isDatabaseOpen, setIsDatabaseOpen] = useState(false);
+
+  // Sync server database on initial load
+  useEffect(() => {
+    fetchDatabaseScreenings()
+      .then(records => {
+        if (records && records.length > 0) {
+          setScreeningsList(records);
+        }
+      })
+      .catch(e => console.warn('Could not sync initial db screenings:', e));
+  }, []);
+
   const handleOpenLiveVoice = (context?: string) => {
     setLiveVoiceContext(
       context ||
@@ -171,6 +201,53 @@ export default function App() {
         `Patient: ${patientData.fullName || 'Anonymous'}, ${patientData.age}y ${patientData.gender}, ${patientData.state}. Vocation: ${patientData.vocation}.`
     );
     setIsSearchGroundingOpen(true);
+  };
+
+  // Touch Swipe Support for mobile and tablets
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+    setTouchStartY(e.touches[0].clientY);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null || touchStartY === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX;
+    const deltaY = e.changedTouches[0].clientY - touchStartY;
+
+    // Detect horizontal swipe (at least 45px distance and horizontal direction)
+    if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3) {
+      if (deltaX < 0) {
+        // Swiped Left -> go to Next Step
+        handleStepForward();
+      } else {
+        // Swiped Right -> go to Previous Step
+        handleStepBack();
+      }
+    }
+    setTouchStartX(null);
+    setTouchStartY(null);
+  };
+
+  const handleStepForward = () => {
+    if (activeStep === 3) {
+      handleCalculateAndTriage();
+    } else if (activeStep < 5) {
+      setActiveStep(prev => prev + 1);
+    }
+  };
+
+  const handleStepBack = () => {
+    if (activeStep > 1) {
+      setActiveStep(prev => prev - 1);
+    }
+  };
+
+  const handleLoadPatientFromDatabase = (pat: PatientDemographics) => {
+    setPatientData(pat);
+    setActiveStep(1);
   };
 
   // Storage and Sync Queue
@@ -194,10 +271,15 @@ export default function App() {
     }, 1200);
   };
 
-  // Transition from Step 3 to Step 4 (Compute and Save Screening)
-  const handleCalculateAndTriage = () => {
+  // Transition from Step 3 to Step 4 (Compute and Save Screening to Database)
+  const handleCalculateAndTriage = async () => {
     const result = computeCompositeScreening(patientData, kineticData, symptomData);
     saveScreening(result, isOffline);
+    try {
+      await saveScreeningToDatabase(result);
+    } catch (e) {
+      console.warn('Could not auto-save to database:', e);
+    }
     setCurrentScreening(result);
     refreshScreenings();
     setActiveStep(4);
@@ -244,7 +326,7 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0F172A] text-[#334155] dark:text-[#E2E8F0] flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-[#FAF7EE] dark:bg-[#0B1120] text-[#332D22] dark:text-[#E2E8F0] flex flex-col font-sans transition-colors duration-200">
       {/* Top Header */}
       <Header
         currentRole={currentRole}
@@ -260,78 +342,128 @@ export default function App() {
         isSyncing={isSyncing}
         onOpenLiveVoice={() => handleOpenLiveVoice()}
         onOpenSearchGrounding={() => handleOpenSearchGrounding()}
+        onOpenDatabase={() => setIsDatabaseOpen(true)}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+      {/* Main Content Area with Touch-Swipe gesture accessibility */}
+      <main
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-5 select-none-touch"
+      >
         {/* Role 1: Field Healthcare Worker Portal */}
         {currentRole === 'field_worker' && (
           <div className="space-y-6">
-            {/* Field Stepper Bar - Elegant Glassmorphic Progress Indicator */}
-            <div className="bg-white/95 dark:bg-slate-900/90 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 p-3.5 sm:p-4 shadow-xs backdrop-blur-md overflow-x-auto">
-              <div className="flex items-center justify-between min-w-[640px] px-1">
-                {steps.map((st, idx) => {
-                  const Icon = st.icon;
-                  const isActive = activeStep === st.number;
-                  const isCompleted = activeStep > st.number;
+            {/* Field Stepper Bar - Plain, Aligned, Toggleable with Left/Right arrows & Swipeable */}
+            <div className="bg-[#FCFAF2] dark:bg-slate-900/90 rounded-2xl border border-[#E5DFD0] dark:border-slate-800/80 p-2 sm:p-2.5 shadow-xs backdrop-blur-md">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* Left Toggle Button (<) */}
+                <button
+                  type="button"
+                  onClick={handleStepBack}
+                  disabled={activeStep <= 1}
+                  aria-label="Previous step"
+                  className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 border transition-all cursor-pointer ${
+                    activeStep > 1
+                      ? 'bg-[#ECE5D3] hover:bg-[#E4DBC5] text-[#2B2519] border-[#DDD5BF] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 shadow-2xs'
+                      : 'bg-[#F5F1E5]/40 text-[#9C9381]/50 border-transparent dark:bg-slate-800/20 dark:text-slate-600 cursor-not-allowed'
+                  }`}
+                  title="Toggle to previous step"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
 
-                  return (
-                    <React.Fragment key={st.number}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (st.number === 4) handleCalculateAndTriage();
-                          else setActiveStep(st.number);
-                        }}
-                        className={`group flex items-center gap-3 px-3.5 py-2 rounded-xl transition-all duration-200 cursor-pointer ${
-                          isActive
-                            ? 'bg-gradient-to-r from-teal-500/15 to-emerald-500/10 text-teal-800 dark:text-teal-200 font-bold border border-teal-500/30 shadow-xs'
-                            : isCompleted
-                            ? 'text-emerald-700 dark:text-emerald-400 font-semibold hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20'
-                            : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                        }`}
-                      >
-                        <div
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-transform duration-200 group-hover:scale-105 ${
+                {/* Steps Horizontal Track */}
+                <div className="flex-1 overflow-x-auto scroll-smooth touch-pan-x flex items-center justify-between min-w-0 px-1">
+                  {steps.map((st, idx) => {
+                    const Icon = st.icon;
+                    const isActive = activeStep === st.number;
+                    const isCompleted = activeStep > st.number;
+
+                    return (
+                      <React.Fragment key={st.number}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (st.number === 4) handleCalculateAndTriage();
+                            else setActiveStep(st.number);
+                          }}
+                          className={`group flex items-center gap-1.5 sm:gap-2 px-2 sm:px-2.5 py-1.5 rounded-xl transition-all duration-200 cursor-pointer shrink-0 ${
                             isActive
-                              ? 'bg-gradient-to-tr from-teal-600 to-emerald-500 text-white shadow-sm shadow-teal-500/30 ring-2 ring-teal-500/20'
+                              ? 'bg-[#ECE5D3] dark:bg-slate-800 text-[#2B2519] dark:text-slate-100 font-bold border border-[#DDD5BF] dark:border-slate-700 shadow-xs'
                               : isCompleted
-                              ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                              ? 'text-[#486356] dark:text-emerald-400 font-semibold hover:bg-[#F3EFE3] dark:hover:bg-slate-800/50'
+                              : 'text-[#847B6A] hover:text-[#332D22] dark:text-slate-500 dark:hover:text-slate-300 hover:bg-[#F3EFE3] dark:hover:bg-slate-800/40'
                           }`}
                         >
-                          <Icon className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="text-left">
-                          <span
-                            className={`text-[9px] uppercase tracking-wider font-extrabold block leading-none ${
+                          <div
+                            className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center text-xs font-bold transition-transform duration-200 group-hover:scale-105 ${
                               isActive
-                                ? 'text-teal-600 dark:text-teal-400'
+                                ? 'bg-[#383124] text-white dark:bg-teal-500 dark:text-slate-950 shadow-xs'
                                 : isCompleted
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-slate-400 dark:text-slate-500'
+                                ? 'bg-[#E0DAC6] text-[#3A3325] dark:bg-emerald-500/20 dark:text-emerald-300'
+                                : 'bg-[#EFE8D6] dark:bg-slate-800 text-[#847B6A] dark:text-slate-500'
                             }`}
                           >
-                            Step 0{st.number}
-                          </span>
-                          <span className="text-xs font-semibold leading-tight block mt-0.5">{st.label}</span>
-                        </div>
-                      </button>
+                            <Icon className="w-3 h-3" />
+                          </div>
+                          <div className="text-left">
+                            <span
+                              className={`text-[9px] uppercase tracking-wider font-bold block leading-none ${
+                                isActive
+                                  ? 'text-[#5E5442] dark:text-teal-400'
+                                  : isCompleted
+                                  ? 'text-[#486356] dark:text-emerald-400'
+                                  : 'text-[#847B6A] dark:text-slate-500'
+                              }`}
+                            >
+                              Step 0{st.number}
+                            </span>
+                            <span className="text-[11px] font-semibold leading-tight block mt-0.5 whitespace-nowrap">
+                              {st.label}
+                            </span>
+                          </div>
+                        </button>
 
-                      {idx < steps.length - 1 && (
-                        <div className="flex-1 px-2 flex items-center">
-                          <div
-                            className={`w-full h-1 rounded-full transition-all duration-300 ${
-                              activeStep > idx + 1
-                                ? 'bg-gradient-to-r from-teal-500/60 to-emerald-500/60 shadow-xs'
-                                : 'bg-slate-200/80 dark:bg-slate-800/80'
-                            }`}
-                          />
-                        </div>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
+                        {idx < steps.length - 1 && (
+                          <div className="flex-1 px-1 sm:px-1.5 flex items-center min-w-4 sm:min-w-6">
+                            <div
+                              className={`w-full h-0.5 rounded-full transition-all duration-300 ${
+                                activeStep > idx + 1
+                                  ? 'bg-[#9C927D] dark:bg-teal-500/60'
+                                  : 'bg-[#E5DFD0] dark:bg-slate-800'
+                              }`}
+                            />
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+
+                {/* Right Toggle Button (>) */}
+                <button
+                  type="button"
+                  onClick={handleStepForward}
+                  disabled={activeStep >= 5}
+                  aria-label="Next step"
+                  className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 border transition-all cursor-pointer ${
+                    activeStep < 5
+                      ? 'bg-[#ECE5D3] hover:bg-[#E4DBC5] text-[#2B2519] border-[#DDD5BF] dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 shadow-2xs'
+                      : 'bg-[#F5F1E5]/40 text-[#9C9381]/50 border-transparent dark:bg-slate-800/20 dark:text-slate-600 cursor-not-allowed'
+                  }`}
+                  title="Toggle to next step"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Mobile Swipe Hint and Toggle Helper Bar */}
+              <div className="flex sm:hidden items-center justify-between pt-1.5 mt-1.5 border-t border-[#E5DFD0]/60 dark:border-slate-800/60 text-[10px] text-[#736B59] dark:text-slate-400 px-1">
+                <span>← Swipe left/right or tap &lt; &gt; to toggle</span>
+                <span className="font-semibold text-[#2B2519] dark:text-slate-200">
+                  Step {activeStep} of 5
+                </span>
               </div>
             </div>
 
@@ -342,6 +474,7 @@ export default function App() {
                 onChange={setPatientData}
                 onNext={() => setActiveStep(2)}
                 language={language}
+                onOpenDatabase={() => setIsDatabaseOpen(true)}
               />
             )}
 
@@ -374,6 +507,7 @@ export default function App() {
                 language={language}
                 onOpenLiveVoice={(ctx) => handleOpenLiveVoice(ctx)}
                 onOpenSearchGrounding={(q, ctx) => handleOpenSearchGrounding(q, ctx)}
+                onOpenDatabase={() => setIsDatabaseOpen(true)}
               />
             )}
 
@@ -419,6 +553,13 @@ export default function App() {
         onClose={() => setIsSearchGroundingOpen(false)}
         defaultQuery={searchGroundingQuery}
         patientContext={searchGroundingContext}
+      />
+
+      {/* Persistent Server Database Explorer Modal */}
+      <DatabaseModal
+        isOpen={isDatabaseOpen}
+        onClose={() => setIsDatabaseOpen(false)}
+        onLoadPatient={handleLoadPatientFromDatabase}
       />
 
       {/* Footer */}

@@ -1,8 +1,57 @@
 @import "tailwindcss";
 
+@variant dark (.dark &, &.dark);
+
 @layer base {
+  :root {
+    --bg-main: #FAF7EE;
+    --bg-surface: #FCFAF2;
+    --bg-subtle: #F3EFE3;
+    --border-color: #E5DFD0;
+    --text-primary: #332D22;
+    --text-muted: #736B59;
+
+    /* Subtle Muted Yellow theme for Light Mode (easy on the eyes, zero harsh glare) */
+    --color-white: #FCFAF2;
+    --color-slate-50: #F6F2E7;
+    --color-slate-100: #EFE9DB;
+    --color-slate-200: #E5DFD0;
+    --color-slate-300: #D8D0BE;
+    --color-slate-400: #9C9381;
+    --color-slate-500: #7A7160;
+    --color-slate-600: #5E5545;
+    --color-slate-700: #4A4233;
+    --color-slate-800: #383124;
+    --color-slate-900: #262117;
+  }
+
+  .dark, [data-theme="dark"] {
+    --bg-main: #0B1120;
+    --bg-surface: #111B2E;
+    --bg-subtle: #19263E;
+    --border-color: #1E293B;
+    --text-primary: #E2E8F0;
+    --text-muted: #94A3B8;
+
+    /* Dark Mode Slate Palette */
+    --color-white: #FFFFFF;
+    --color-slate-50: #F8FAFC;
+    --color-slate-100: #F1F5F9;
+    --color-slate-200: #E2E8F0;
+    --color-slate-300: #CBD5E1;
+    --color-slate-400: #94A3B8;
+    --color-slate-500: #64748B;
+    --color-slate-600: #475569;
+    --color-slate-700: #334155;
+    --color-slate-800: #1E293B;
+    --color-slate-900: #0F172A;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
